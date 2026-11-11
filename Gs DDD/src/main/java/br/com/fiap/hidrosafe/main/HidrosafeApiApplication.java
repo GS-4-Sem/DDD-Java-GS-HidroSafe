@@ -1,10 +1,10 @@
-package src.main.java.br.com.fiap.hidrosafe.main;
+package br.com.fiap.hidrosafe.main;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 
-@SpringBootApplication(scanBasePackages = "br.com.hidrosafe", exclude = DataSourceAutoConfiguration.class)
+@SpringBootApplication(scanBasePackages = "br.com.fiap.hidrosafe", exclude = DataSourceAutoConfiguration.class)
 public class HidrosafeApiApplication {
 
     public static void main(String[] args) {

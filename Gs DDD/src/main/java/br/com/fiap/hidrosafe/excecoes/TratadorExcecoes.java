@@ -58,6 +58,7 @@ public class TratadorExcecoes {
 
     @ExceptionHandler(ErroBancoException.class)
     public ResponseEntity<ErroResposta> banco(ErroBancoException e) {
+        System.err.println("ERRO DE BANCO (codigo " + e.getCodigoErro() + "): " + e.getMessage());
         int codigo = e.getCodigoErro();
 
         if (codigo == 1) {

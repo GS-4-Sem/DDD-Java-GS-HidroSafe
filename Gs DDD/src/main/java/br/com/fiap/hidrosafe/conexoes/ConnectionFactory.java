@@ -6,10 +6,18 @@ import java.sql.SQLException;
 
 public class ConnectionFactory {
 
+    private static final String URL = "jdbc:oracle:thin:@oracle.fiap.com.br:1521:orcl";
+
+    // usuário e senha vêm das variáveis de ambiente (não vão para o GitHub)
+    private static final String USUARIO = System.getenv("DB_USER");
+    private static final String SENHA = System.getenv("DB_PASSWORD");
+
     public static Connection getConnection() throws SQLException {
-        String url = System.getenv("DB_URL");
-        String user = System.getenv("DB_USER");
-        String password = System.getenv("DB_PASSWORD");
-        return DriverManager.getConnection(url, user, password);
+        try {
+            Class.forName("oracle.jdbc.driver.OracleDriver");
+        } catch (ClassNotFoundException e) {
+            throw new SQLException("Driver Oracle não encontrado", e);
+        }
+        return DriverManager.getConnection(URL, USUARIO, SENHA);
     }
 }

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HidroSafe SCS - Teste da API</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; color: #1f2937; background: #f3f4f6; }
+        h1 { color: #0b5394; margin-bottom: 4px; }
+        .card { background: #fff; border-radius: 8px; padding: 16px; margin-top: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+        label { display: block; font-size: 13px; margin-top: 10px; }
+        input { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px; }
+        button { padding: 8px 14px; border: 0; border-radius: 4px; cursor: pointer; background: #0b5394; color: #fff; margin-top: 12px; }
+        button.cinza { background: #64748b; }
+        button.editar { background: #0369a1; margin-top: 0; }
+        button.excluir { background: #b91c1c; margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+        #status { padding: 10px; border-radius: 4px; margin-top: 16px; display: none; font-size: 14px; }
+        .ok { background: #dcfce7; color: #166534; }
+        .erro { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+
+<h1>HidroSafe SCS</h1>
+<p>Página de teste da API: Regiões</p>
+
+<div id="status"></div>
+
+<div class="card">
+    <h3 id="titulo-form">Nova região</h3>
+    <form id="form">
+        <label>Nome da região
+            <input type="text" id="nmRegiao" placeholder="Ex: Barcelona">
+        </label>
+        <label>Cidade
+            <input type="text" id="nmCidade" placeholder="Ex: São Caetano do Sul">
+        </label>
+        <label>Nível de risco (BAIXO, MEDIO ou ALTO)
+            <input type="text" id="dsNivelRisco" placeholder="Ex: ALTO">
+        </label>
+        <button type="submit" id="btn-salvar">Cadastrar</button>
+        <button type="button" class="cinza" id="btn-cancelar" style="display:none">Cancelar edição</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Regiões cadastradas</h3>
+    <table>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Região</th>
+            <th>Cidade</th>
+            <th>Risco</th>
+            <th>Ações</th>
+        </tr>
+        </thead>
+        <tbody id="corpo"></tbody>
+    </table>
+</div>
+
+<script>
+    const API = "/regioes";
+    let idEditando = null;
+
+    function mostrar(texto, deuCerto) {
+        const caixa = document.getElementById("status");
+        caixa.textContent = texto;
+        caixa.className = deuCerto ? "ok" : "erro";
+        caixa.style.display = "block";
+    }
+
+    async function textoErro(resp) {
+        try {
+            const erro = await resp.json();
+            return erro.mensagem || "Erro desconhecido";
+        } catch (e) {
+            return "Erro desconhecido";
+        }
+    }
+
+    async function chamar(metodo, url, corpo) {
+        try {
+            const opcoes = { method: metodo, headers: { "Content-Type": "application/json" } };
+            if (corpo) {
+                opcoes.body = JSON.stringify(corpo);
+            }
+            return await fetch(url, opcoes);
+        } catch (e) {
+            mostrar("Não foi possível conectar à API. Ela está rodando?", false);
+            return null;
+        }
+    }
+
+    async function listar() {
+        const resp = await chamar("GET", API);
+        if (resp === null) {
+            return;
+        }
+        if (!resp.ok) {
+            mostrar("GET " + API + " → " + resp.status + ": " + await textoErro(resp), false);
+            return;
+        }
+
+        const regioes = await resp.json();
+        const corpo = document.getElementById("corpo");
+        corpo.innerHTML = "";
+
+        regioes.forEach(function (r) {
+            const linha = document.createElement("tr");
+
+            [r.idRegiao, r.nmRegiao, r.nmCidade, r.dsNivelRisco].forEach(function (valor) {
+                const celula = document.createElement("td");
+                celula.textContent = valor;
+                linha.appendChild(celula);
+            });
+
+            const acoes = document.createElement("td");
+
+            const btnEditar = document.createElement("button");
+            btnEditar.textContent = "Editar";
+            btnEditar.className = "editar";
+            btnEditar.onclick = function () { editar(r); };
+
+            const btnExcluir = document.createElement("button");
+            btnExcluir.textContent = "Excluir";
+            btnExcluir.className = "excluir";
+            btnExcluir.onclick = function () { excluir(r.idRegiao); };
+
+            acoes.appendChild(btnEditar);
+            acoes.appendChild(document.createTextNode(" "));
+            acoes.appendChild(btnExcluir);
+            linha.appendChild(acoes);
+
+            corpo.appendChild(linha);
+        });
+    }
+
+    function editar(r) {
+        idEditando = r.idRegiao;
+        document.getElementById("nmRegiao").value = r.nmRegiao;
+        document.getElementById("nmCidade").value = r.nmCidade;
+        document.getElementById("dsNivelRisco").value = r.dsNivelRisco;
+        document.getElementById("titulo-form").textContent = "Editando região " + r.idRegiao;
+        document.getElementById("btn-salvar").textContent = "Salvar alteração";
+        document.getElementById("btn-cancelar").style.display = "inline-block";
+        window.scrollTo(0, 0);
+    }
+
+    function limpar() {
+        idEditando = null;
+        document.getElementById("form").reset();
+        document.getElementById("titulo-form").textContent = "Nova região";
+        document.getElementById("btn-salvar").textContent = "Cadastrar";
+        document.getElementById("btn-cancelar").style.display = "none";
+    }
+
+    async function excluir(id) {
+        if (!confirm("Excluir a região " + id + "?")) {
+            return;
+        }
+        const url = API + "/" + id;
+        const resp = await chamar("DELETE", url);
+        if (resp === null) {
+            return;
+        }
+        if (resp.status === 204) {
+            mostrar("DELETE " + url + " → 204 Excluída com sucesso", true);
+            listar();
+        } else {
+            mostrar("DELETE " + url + " → " + resp.status + ": " + await textoErro(resp), false);
+        }
+    }
+
+    document.getElementById("form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const dados = {
+            nmRegiao: document.getElementById("nmRegiao").value,
+            nmCidade: document.getElementById("nmCidade").value,
+            dsNivelRisco: document.getElementById("dsNivelRisco").value
+        };
+
+        const metodo = idEditando ? "PUT" : "POST";
+        const url = idEditando ? API + "/" + idEditando : API;
+
+        const resp = await chamar(metodo, url, dados);
+        if (resp === null) {
+            return;
+        }
+        if (resp.ok) {
+            mostrar(metodo + " " + url + " → " + resp.status + " OK", true);
+            limpar();
+            listar();
+        } else {
+            mostrar(metodo + " " + url + " → " + resp.status + ": " + await textoErro(resp), false);
+        }
+    });
+
+    document.getElementById("btn-cancelar").addEventListener("click", limpar);
+
+    listar();
+</script>
+
+</body>
+</html>
