@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>HidroSafe SCS - Teste da API</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; color: #1f2937; background: #f3f4f6; }
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 24px auto; padding: 0 16px; color: #1f2937; background: #f3f4f6; }
         h1 { color: #0b5394; margin-bottom: 4px; }
         .card { background: #fff; border-radius: 8px; padding: 16px; margin-top: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
         label { display: block; font-size: 13px; margin-top: 10px; }
@@ -14,55 +14,122 @@
         button.cinza { background: #64748b; }
         button.editar { background: #0369a1; margin-top: 0; }
         button.excluir { background: #b91c1c; margin-top: 0; }
+        #abas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+        #abas button { margin-top: 0; background: #e2e8f0; color: #1f2937; }
+        #abas button.ativa { background: #0b5394; color: #fff; }
         table { width: 100%; border-collapse: collapse; }
         th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+        .tabela { overflow-x: auto; }
         #status { padding: 10px; border-radius: 4px; margin-top: 16px; display: none; font-size: 14px; }
         .ok { background: #dcfce7; color: #166534; }
         .erro { background: #fee2e2; color: #991b1b; }
+        .dica { font-size: 12px; color: #64748b; margin: 4px 0 0; }
     </style>
 </head>
 <body>
 
 <h1>HidroSafe SCS</h1>
-<p>Página de teste da API: Regiões</p>
+<p id="subtitulo">Página de teste da API</p>
+
+<div id="abas"></div>
 
 <div id="status"></div>
 
 <div class="card">
-    <h3 id="titulo-form">Nova região</h3>
+    <h3 id="titulo-form"></h3>
+    <p class="dica" id="dica"></p>
     <form id="form">
-        <label>Nome da região
-            <input type="text" id="nmRegiao" placeholder="Ex: Barcelona">
-        </label>
-        <label>Cidade
-            <input type="text" id="nmCidade" placeholder="Ex: São Caetano do Sul">
-        </label>
-        <label>Nível de risco (BAIXO, MEDIO ou ALTO)
-            <input type="text" id="dsNivelRisco" placeholder="Ex: ALTO">
-        </label>
+        <div id="campos"></div>
         <button type="submit" id="btn-salvar">Cadastrar</button>
         <button type="button" class="cinza" id="btn-cancelar" style="display:none">Cancelar edição</button>
     </form>
 </div>
 
 <div class="card">
-    <h3>Regiões cadastradas</h3>
-    <table>
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Região</th>
-            <th>Cidade</th>
-            <th>Risco</th>
-            <th>Ações</th>
-        </tr>
-        </thead>
-        <tbody id="corpo"></tbody>
-    </table>
+    <h3 id="titulo-lista"></h3>
+    <div class="tabela">
+        <table>
+            <thead>
+            <tr id="cabecalho"></tr>
+            </thead>
+            <tbody id="corpo"></tbody>
+        </table>
+    </div>
 </div>
 
 <script>
-    const API = "/regioes";
+    // cada entidade: rota, nome da chave, campos do formulário (tipo: texto ou numero) e colunas da tabela
+    const ENTIDADES = [
+        {
+            nome: "Regiões", singular: "região", rota: "/regioes", chave: "idRegiao",
+            campos: [
+                { k: "nmRegiao", rotulo: "Nome da região", ph: "Ex: Barcelona" },
+                { k: "nmCidade", rotulo: "Cidade", ph: "Ex: São Caetano do Sul" },
+                { k: "dsNivelRisco", rotulo: "Nível de risco (BAIXO, MEDIO ou ALTO)", ph: "Ex: ALTO" }
+            ],
+            colunas: [["ID", "idRegiao"], ["Região", "nmRegiao"], ["Cidade", "nmCidade"], ["Risco", "dsNivelRisco"]]
+        },
+        {
+            nome: "Ruas", singular: "rua", rota: "/ruas", chave: "idRua",
+            campos: [
+                { k: "idRegiao", rotulo: "ID da região", tipo: "numero", ph: "Ex: 1" },
+                { k: "nmRua", rotulo: "Nome da rua", ph: "Ex: Avenida Goiás" },
+                { k: "nrLimiteCm", rotulo: "Limite de alagamento em cm (opcional, padrão 30)", tipo: "numero", ph: "Ex: 30" }
+            ],
+            colunas: [["ID", "idRua"], ["Região", "idRegiao"], ["Rua", "nmRua"], ["Limite (cm)", "nrLimiteCm"]]
+        },
+        {
+            nome: "Sensores", singular: "sensor", rota: "/sensores", chave: "idSensor",
+            campos: [
+                { k: "idRua", rotulo: "ID da rua", tipo: "numero", ph: "Ex: 1" },
+                { k: "nmSensor", rotulo: "Nome do sensor", ph: "Ex: Sensor Goiás 01" },
+                { k: "dsStatus", rotulo: "Status (ATIVO ou INATIVO; opcional, padrão ATIVO)", ph: "Ex: ATIVO" }
+            ],
+            colunas: [["ID", "idSensor"], ["Rua", "idRua"], ["Sensor", "nmSensor"], ["Status", "dsStatus"]]
+        },
+        {
+            nome: "Leituras", singular: "leitura", rota: "/leituras", chave: "idLeitura",
+            dica: "SENSOR exige o ID do sensor (da mesma rua); RELATO não pode ter sensor. Se o nível chegar ao limite da rua, um alerta é criado automaticamente (veja a aba Alertas).",
+            campos: [
+                { k: "idRua", rotulo: "ID da rua", tipo: "numero", ph: "Ex: 1" },
+                { k: "dsOrigem", rotulo: "Origem (SENSOR ou RELATO)", ph: "Ex: SENSOR" },
+                { k: "idSensor", rotulo: "ID do sensor (só para SENSOR)", tipo: "numero", ph: "Ex: 1" },
+                { k: "nrNivelCm", rotulo: "Nível da água em cm", tipo: "numero", ph: "Ex: 34" },
+                { k: "nmReportante", rotulo: "Reportante (opcional, para RELATO)", ph: "Ex: Maria" }
+            ],
+            colunas: [["ID", "idLeitura"], ["Rua", "idRua"], ["Sensor", "idSensor"], ["Origem", "dsOrigem"],
+                ["Nível (cm)", "nrNivelCm"], ["Data", "dtLeitura"], ["Reportante", "nmReportante"]]
+        },
+        {
+            nome: "Alertas", singular: "alerta", rota: "/alertas", chave: "idAlerta",
+            dica: "Para encerrar um alerta, clique em Editar e troque o status para ENCERRADO.",
+            campos: [
+                { k: "idRua", rotulo: "ID da rua", tipo: "numero", ph: "Ex: 1" },
+                { k: "dsGravidade", rotulo: "Gravidade (ATENCAO, ALERTA ou EMERGENCIA)", ph: "Ex: ALERTA" },
+                { k: "dsMensagem", rotulo: "Mensagem", ph: "Ex: Água subindo rápido" },
+                { k: "dsStatus", rotulo: "Status (ATIVO ou ENCERRADO; opcional, padrão ATIVO)", ph: "Ex: ATIVO" }
+            ],
+            colunas: [["ID", "idAlerta"], ["Rua", "idRua"], ["Gravidade", "dsGravidade"], ["Mensagem", "dsMensagem"],
+                ["Status", "dsStatus"], ["Emissão", "dtEmissao"]]
+        },
+        {
+            nome: "Abrigos", singular: "abrigo", rota: "/abrigos", chave: "idAbrigo",
+            dica: "Se a ocupação for igual à capacidade, o status vira LOTADO automaticamente (a menos que esteja FECHADO).",
+            campos: [
+                { k: "idRegiao", rotulo: "ID da região", tipo: "numero", ph: "Ex: 1" },
+                { k: "nmAbrigo", rotulo: "Nome do abrigo", ph: "Ex: Ginásio Municipal" },
+                { k: "dsEndereco", rotulo: "Endereço", ph: "Ex: Rua das Flores, 100" },
+                { k: "nrCapacidade", rotulo: "Capacidade", tipo: "numero", ph: "Ex: 100" },
+                { k: "nrOcupacao", rotulo: "Ocupação (opcional, padrão 0)", tipo: "numero", ph: "Ex: 0" },
+                { k: "nrKitsEstoque", rotulo: "Kits em estoque (opcional, padrão 0)", tipo: "numero", ph: "Ex: 50" },
+                { k: "dsStatus", rotulo: "Status (ABERTO, LOTADO ou FECHADO; opcional, padrão ABERTO)", ph: "Ex: ABERTO" }
+            ],
+            colunas: [["ID", "idAbrigo"], ["Região", "idRegiao"], ["Abrigo", "nmAbrigo"], ["Endereço", "dsEndereco"],
+                ["Capacidade", "nrCapacidade"], ["Ocupação", "nrOcupacao"], ["Kits", "nrKitsEstoque"], ["Status", "dsStatus"]]
+        }
+    ];
+
+    let atual = ENTIDADES[0];
     let idEditando = null;
 
     function mostrar(texto, deuCerto) {
@@ -94,26 +161,89 @@
         }
     }
 
+    function montarAbas() {
+        const abas = document.getElementById("abas");
+        abas.innerHTML = "";
+        ENTIDADES.forEach(function (ent) {
+            const botao = document.createElement("button");
+            botao.type = "button";
+            botao.textContent = ent.nome;
+            botao.className = ent === atual ? "ativa" : "";
+            botao.onclick = function () { trocarAba(ent); };
+            abas.appendChild(botao);
+        });
+    }
+
+    function trocarAba(ent) {
+        atual = ent;
+        document.getElementById("status").style.display = "none";
+        montarAbas();
+        montarFormulario();
+        limpar();
+        document.getElementById("titulo-lista").textContent = ent.nome + " cadastradas";
+        document.getElementById("subtitulo").textContent = "Página de teste da API: " + ent.nome;
+
+        const cabecalho = document.getElementById("cabecalho");
+        cabecalho.innerHTML = "";
+        ent.colunas.concat([["Ações", null]]).forEach(function (col) {
+            const th = document.createElement("th");
+            th.textContent = col[0];
+            cabecalho.appendChild(th);
+        });
+        document.getElementById("corpo").innerHTML = "";
+        listar();
+    }
+
+    function montarFormulario() {
+        const area = document.getElementById("campos");
+        area.innerHTML = "";
+        atual.campos.forEach(function (c) {
+            const rotulo = document.createElement("label");
+            rotulo.appendChild(document.createTextNode(c.rotulo));
+            const campo = document.createElement("input");
+            campo.type = c.tipo === "numero" ? "number" : "text";
+            if (c.tipo === "numero") {
+                campo.step = "any";
+            }
+            campo.id = "campo-" + c.k;
+            campo.placeholder = c.ph || "";
+            rotulo.appendChild(campo);
+            area.appendChild(rotulo);
+        });
+        document.getElementById("dica").textContent = atual.dica || "";
+    }
+
+    function formatar(valor) {
+        if (valor === null || valor === undefined) {
+            return "";
+        }
+        return String(valor).replace("T", " ").split(".")[0];
+    }
+
     async function listar() {
-        const resp = await chamar("GET", API);
+        const rota = atual.rota;
+        const resp = await chamar("GET", rota);
         if (resp === null) {
             return;
         }
         if (!resp.ok) {
-            mostrar("GET " + API + " → " + resp.status + ": " + await textoErro(resp), false);
+            mostrar("GET " + rota + " → " + resp.status + ": " + await textoErro(resp), false);
             return;
         }
 
-        const regioes = await resp.json();
+        const registros = await resp.json();
+        if (rota !== atual.rota) {
+            return;
+        }
         const corpo = document.getElementById("corpo");
         corpo.innerHTML = "";
 
-        regioes.forEach(function (r) {
+        registros.forEach(function (r) {
             const linha = document.createElement("tr");
 
-            [r.idRegiao, r.nmRegiao, r.nmCidade, r.dsNivelRisco].forEach(function (valor) {
+            atual.colunas.forEach(function (col) {
                 const celula = document.createElement("td");
-                celula.textContent = valor;
+                celula.textContent = formatar(r[col[1]]);
                 linha.appendChild(celula);
             });
 
@@ -127,7 +257,7 @@
             const btnExcluir = document.createElement("button");
             btnExcluir.textContent = "Excluir";
             btnExcluir.className = "excluir";
-            btnExcluir.onclick = function () { excluir(r.idRegiao); };
+            btnExcluir.onclick = function () { excluir(r[atual.chave]); };
 
             acoes.appendChild(btnEditar);
             acoes.appendChild(document.createTextNode(" "));
@@ -139,11 +269,12 @@
     }
 
     function editar(r) {
-        idEditando = r.idRegiao;
-        document.getElementById("nmRegiao").value = r.nmRegiao;
-        document.getElementById("nmCidade").value = r.nmCidade;
-        document.getElementById("dsNivelRisco").value = r.dsNivelRisco;
-        document.getElementById("titulo-form").textContent = "Editando região " + r.idRegiao;
+        idEditando = r[atual.chave];
+        atual.campos.forEach(function (c) {
+            const valor = r[c.k];
+            document.getElementById("campo-" + c.k).value = (valor === null || valor === undefined) ? "" : valor;
+        });
+        document.getElementById("titulo-form").textContent = "Editando " + atual.singular + " " + idEditando;
         document.getElementById("btn-salvar").textContent = "Salvar alteração";
         document.getElementById("btn-cancelar").style.display = "inline-block";
         window.scrollTo(0, 0);
@@ -152,22 +283,22 @@
     function limpar() {
         idEditando = null;
         document.getElementById("form").reset();
-        document.getElementById("titulo-form").textContent = "Nova região";
+        document.getElementById("titulo-form").textContent = "Novo(a) " + atual.singular;
         document.getElementById("btn-salvar").textContent = "Cadastrar";
         document.getElementById("btn-cancelar").style.display = "none";
     }
 
     async function excluir(id) {
-        if (!confirm("Excluir a região " + id + "?")) {
+        if (!confirm("Excluir " + atual.singular + " " + id + "?")) {
             return;
         }
-        const url = API + "/" + id;
+        const url = atual.rota + "/" + id;
         const resp = await chamar("DELETE", url);
         if (resp === null) {
             return;
         }
         if (resp.status === 204) {
-            mostrar("DELETE " + url + " → 204 Excluída com sucesso", true);
+            mostrar("DELETE " + url + " → 204 Excluído com sucesso", true);
             listar();
         } else {
             mostrar("DELETE " + url + " → " + resp.status + ": " + await textoErro(resp), false);
@@ -177,21 +308,30 @@
     document.getElementById("form").addEventListener("submit", async function (e) {
         e.preventDefault();
 
-        const dados = {
-            nmRegiao: document.getElementById("nmRegiao").value,
-            nmCidade: document.getElementById("nmCidade").value,
-            dsNivelRisco: document.getElementById("dsNivelRisco").value
-        };
+        // campo vazio vai como null (a API usa o padrão ou devolve a mensagem de campo obrigatório)
+        const dados = {};
+        atual.campos.forEach(function (c) {
+            const texto = document.getElementById("campo-" + c.k).value;
+            if (texto === "") {
+                dados[c.k] = null;
+            } else {
+                dados[c.k] = c.tipo === "numero" ? Number(texto) : texto;
+            }
+        });
 
         const metodo = idEditando ? "PUT" : "POST";
-        const url = idEditando ? API + "/" + idEditando : API;
+        const url = idEditando ? atual.rota + "/" + idEditando : atual.rota;
 
         const resp = await chamar(metodo, url, dados);
         if (resp === null) {
             return;
         }
         if (resp.ok) {
-            mostrar(metodo + " " + url + " → " + resp.status + " OK", true);
+            let texto = metodo + " " + url + " → " + resp.status + " OK";
+            if (metodo === "POST" && atual.rota === "/leituras") {
+                texto += " (se o nível passou do limite da rua, um alerta foi gerado: veja a aba Alertas)";
+            }
+            mostrar(texto, true);
             limpar();
             listar();
         } else {
@@ -201,7 +341,7 @@
 
     document.getElementById("btn-cancelar").addEventListener("click", limpar);
 
-    listar();
+    trocarAba(ENTIDADES[0]);
 </script>
 
 </body>
