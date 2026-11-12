@@ -9,7 +9,7 @@
         h1 { color: #0b5394; margin-bottom: 4px; }
         .card { background: #fff; border-radius: 8px; padding: 16px; margin-top: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
         label { display: block; font-size: 13px; margin-top: 10px; }
-        input { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px; }
+        input, select { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px; }
         button { padding: 8px 14px; border: 0; border-radius: 4px; cursor: pointer; background: #0b5394; color: #fff; margin-top: 12px; }
         button.cinza { background: #64748b; }
         button.editar { background: #0369a1; margin-top: 0; }
@@ -58,7 +58,8 @@
 </div>
 
 <script>
-    // cada entidade: rota, nome da chave, campos do formulário (tipo: texto ou numero) e colunas da tabela
+    // cada entidade: rota, nome da chave, campos do formulário (tipo: texto, numero ou select) e colunas da tabela
+    // select: busca as opções em 'ref' e mostra o campo 'texto', mas envia o campo 'valor' (o ID)
     const ENTIDADES = [
         {
             nome: "Regiões", singular: "região", rota: "/regioes", chave: "idRegiao",
@@ -72,7 +73,7 @@
         {
             nome: "Ruas", singular: "rua", rota: "/ruas", chave: "idRua",
             campos: [
-                { k: "idRegiao", rotulo: "ID da região", tipo: "numero", ph: "Ex: 1" },
+                { k: "idRegiao", rotulo: "Região", tipo: "select", ref: "/regioes", valor: "idRegiao", texto: "nmRegiao" },
                 { k: "nmRua", rotulo: "Nome da rua", ph: "Ex: Avenida Goiás" },
                 { k: "nrLimiteCm", rotulo: "Limite de alagamento em cm (opcional, padrão 30)", tipo: "numero", ph: "Ex: 30" }
             ],
@@ -81,7 +82,7 @@
         {
             nome: "Sensores", singular: "sensor", rota: "/sensores", chave: "idSensor",
             campos: [
-                { k: "idRua", rotulo: "ID da rua", tipo: "numero", ph: "Ex: 1" },
+                { k: "idRua", rotulo: "Rua", tipo: "select", ref: "/ruas", valor: "idRua", texto: "nmRua" },
                 { k: "nmSensor", rotulo: "Nome do sensor", ph: "Ex: Sensor Goiás 01" },
                 { k: "dsStatus", rotulo: "Status (ATIVO ou INATIVO; opcional, padrão ATIVO)", ph: "Ex: ATIVO" }
             ],
@@ -91,9 +92,9 @@
             nome: "Leituras", singular: "leitura", rota: "/leituras", chave: "idLeitura",
             dica: "SENSOR exige o ID do sensor (da mesma rua); RELATO não pode ter sensor. Se o nível chegar ao limite da rua, um alerta é criado automaticamente (veja a aba Alertas).",
             campos: [
-                { k: "idRua", rotulo: "ID da rua", tipo: "numero", ph: "Ex: 1" },
+                { k: "idRua", rotulo: "Rua", tipo: "select", ref: "/ruas", valor: "idRua", texto: "nmRua" },
                 { k: "dsOrigem", rotulo: "Origem (SENSOR ou RELATO)", ph: "Ex: SENSOR" },
-                { k: "idSensor", rotulo: "ID do sensor (só para SENSOR)", tipo: "numero", ph: "Ex: 1" },
+                { k: "idSensor", rotulo: "Sensor (só para origem SENSOR)", tipo: "select", ref: "/sensores", valor: "idSensor", texto: "nmSensor", opcional: true },
                 { k: "nrNivelCm", rotulo: "Nível da água em cm", tipo: "numero", ph: "Ex: 34" },
                 { k: "nmReportante", rotulo: "Reportante (opcional, para RELATO)", ph: "Ex: Maria" }
             ],
@@ -104,7 +105,7 @@
             nome: "Alertas", singular: "alerta", rota: "/alertas", chave: "idAlerta",
             dica: "Para encerrar um alerta, clique em Editar e troque o status para ENCERRADO.",
             campos: [
-                { k: "idRua", rotulo: "ID da rua", tipo: "numero", ph: "Ex: 1" },
+                { k: "idRua", rotulo: "Rua", tipo: "select", ref: "/ruas", valor: "idRua", texto: "nmRua" },
                 { k: "dsGravidade", rotulo: "Gravidade (ATENCAO, ALERTA ou EMERGENCIA)", ph: "Ex: ALERTA" },
                 { k: "dsMensagem", rotulo: "Mensagem", ph: "Ex: Água subindo rápido" },
                 { k: "dsStatus", rotulo: "Status (ATIVO ou ENCERRADO; opcional, padrão ATIVO)", ph: "Ex: ATIVO" }
@@ -116,7 +117,7 @@
             nome: "Abrigos", singular: "abrigo", rota: "/abrigos", chave: "idAbrigo",
             dica: "Se a ocupação for igual à capacidade, o status vira LOTADO automaticamente (a menos que esteja FECHADO).",
             campos: [
-                { k: "idRegiao", rotulo: "ID da região", tipo: "numero", ph: "Ex: 1" },
+                { k: "idRegiao", rotulo: "Região", tipo: "select", ref: "/regioes", valor: "idRegiao", texto: "nmRegiao" },
                 { k: "nmAbrigo", rotulo: "Nome do abrigo", ph: "Ex: Ginásio Municipal" },
                 { k: "dsEndereco", rotulo: "Endereço", ph: "Ex: Rua das Flores, 100" },
                 { k: "nrCapacidade", rotulo: "Capacidade", tipo: "numero", ph: "Ex: 100" },
@@ -128,6 +129,13 @@
                 ["Capacidade", "nrCapacidade"], ["Ocupação", "nrOcupacao"], ["Kits", "nrKitsEstoque"], ["Status", "dsStatus"]]
         }
     ];
+
+    // colunas de ID que viram nome na tabela (a chave da própria entidade continua mostrando o ID)
+    const REFERENCIAS = {
+        idRegiao: { rota: "/regioes", nome: "nmRegiao" },
+        idRua: { rota: "/ruas", nome: "nmRua" },
+        idSensor: { rota: "/sensores", nome: "nmSensor" }
+    };
 
     let atual = ENTIDADES[0];
     let idEditando = null;
@@ -200,24 +208,59 @@
         atual.campos.forEach(function (c) {
             const rotulo = document.createElement("label");
             rotulo.appendChild(document.createTextNode(c.rotulo));
-            const campo = document.createElement("input");
-            campo.type = c.tipo === "numero" ? "number" : "text";
-            if (c.tipo === "numero") {
-                campo.step = "any";
+            let campo;
+            if (c.tipo === "select") {
+                campo = document.createElement("select");
+                carregarOpcoes(campo, c);
+            } else {
+                campo = document.createElement("input");
+                campo.type = c.tipo === "numero" ? "number" : "text";
+                if (c.tipo === "numero") {
+                    campo.step = "any";
+                }
+                campo.placeholder = c.ph || "";
             }
             campo.id = "campo-" + c.k;
-            campo.placeholder = c.ph || "";
             rotulo.appendChild(campo);
             area.appendChild(rotulo);
         });
         document.getElementById("dica").textContent = atual.dica || "";
     }
 
+    // preenche o select com os registros da API: mostra o nome, o value é o ID
+    async function carregarOpcoes(select, c) {
+        const vazio = document.createElement("option");
+        vazio.value = "";
+        vazio.textContent = c.opcional ? "(nenhum)" : "Selecione...";
+        select.appendChild(vazio);
+
+        const resp = await chamar("GET", c.ref);
+        if (resp === null || !resp.ok) {
+            vazio.textContent = "Não foi possível carregar as opções";
+            return;
+        }
+        const registros = await resp.json();
+        registros.forEach(function (r) {
+            const opcao = document.createElement("option");
+            opcao.value = r[c.valor];
+            opcao.textContent = r[c.texto];
+            select.appendChild(opcao);
+        });
+        if (select.dataset.pendente) {
+            select.value = select.dataset.pendente;
+        }
+    }
+
     function formatar(valor) {
         if (valor === null || valor === undefined) {
             return "";
         }
-        return String(valor).replace("T", " ").split(".")[0];
+        const texto = String(valor);
+        // só datas ISO (2026-11-11T21:16:03.123) são reformatadas; outros textos ficam intactos
+        if (/^\d{4}-\d{2}-\d{2}T/.test(texto)) {
+            return texto.replace("T", " ").split(".")[0];
+        }
+        return texto;
     }
 
     async function listar() {
@@ -232,6 +275,19 @@
         }
 
         const registros = await resp.json();
+
+        // busca os nomes das referências usadas nas colunas: { idRua: { 1: "Av. Goiás" }, ... }
+        const nomes = {};
+        const chaves = atual.colunas.map(function (col) { return col[1]; })
+            .filter(function (k) { return REFERENCIAS[k] && k !== atual.chave; });
+        await Promise.all(chaves.map(async function (k) {
+            nomes[k] = {};
+            const r = await chamar("GET", REFERENCIAS[k].rota);
+            if (r !== null && r.ok) {
+                (await r.json()).forEach(function (item) { nomes[k][item[k]] = item[REFERENCIAS[k].nome]; });
+            }
+        }));
+
         if (rota !== atual.rota) {
             return;
         }
@@ -243,7 +299,9 @@
 
             atual.colunas.forEach(function (col) {
                 const celula = document.createElement("td");
-                celula.textContent = formatar(r[col[1]]);
+                const valor = r[col[1]];
+                const mapa = nomes[col[1]];
+                celula.textContent = (mapa && mapa[valor] !== undefined) ? mapa[valor] : formatar(valor);
                 linha.appendChild(celula);
             });
 
@@ -272,7 +330,12 @@
         idEditando = r[atual.chave];
         atual.campos.forEach(function (c) {
             const valor = r[c.k];
-            document.getElementById("campo-" + c.k).value = (valor === null || valor === undefined) ? "" : valor;
+            const campo = document.getElementById("campo-" + c.k);
+            const texto = (valor === null || valor === undefined) ? "" : String(valor);
+            campo.value = texto;
+            if (c.tipo === "select") {
+                campo.dataset.pendente = texto; // aplicado quando as opções terminarem de carregar
+            }
         });
         document.getElementById("titulo-form").textContent = "Editando " + atual.singular + " " + idEditando;
         document.getElementById("btn-salvar").textContent = "Salvar alteração";
@@ -283,6 +346,7 @@
     function limpar() {
         idEditando = null;
         document.getElementById("form").reset();
+        document.querySelectorAll("#campos select").forEach(function (sel) { delete sel.dataset.pendente; });
         document.getElementById("titulo-form").textContent = "Novo(a) " + atual.singular;
         document.getElementById("btn-salvar").textContent = "Cadastrar";
         document.getElementById("btn-cancelar").style.display = "none";
@@ -315,7 +379,7 @@
             if (texto === "") {
                 dados[c.k] = null;
             } else {
-                dados[c.k] = c.tipo === "numero" ? Number(texto) : texto;
+                dados[c.k] = (c.tipo === "numero" || c.tipo === "select") ? Number(texto) : texto;
             }
         });
 
