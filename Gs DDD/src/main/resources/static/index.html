@@ -130,6 +130,13 @@
         }
     ];
 
+    // colunas de ID que viram nome na tabela (a chave da própria entidade continua mostrando o ID)
+    const REFERENCIAS = {
+        idRegiao: { rota: "/regioes", nome: "nmRegiao" },
+        idRua: { rota: "/ruas", nome: "nmRua" },
+        idSensor: { rota: "/sensores", nome: "nmSensor" }
+    };
+
     let atual = ENTIDADES[0];
     let idEditando = null;
 
@@ -248,7 +255,12 @@
         if (valor === null || valor === undefined) {
             return "";
         }
-        return String(valor).replace("T", " ").split(".")[0];
+        const texto = String(valor);
+        // só datas ISO (2026-11-11T21:16:03.123) são reformatadas; outros textos ficam intactos
+        if (/^\d{4}-\d{2}-\d{2}T/.test(texto)) {
+            return texto.replace("T", " ").split(".")[0];
+        }
+        return texto;
     }
 
     async function listar() {
@@ -263,6 +275,19 @@
         }
 
         const registros = await resp.json();
+
+        // busca os nomes das referências usadas nas colunas: { idRua: { 1: "Av. Goiás" }, ... }
+        const nomes = {};
+        const chaves = atual.colunas.map(function (col) { return col[1]; })
+            .filter(function (k) { return REFERENCIAS[k] && k !== atual.chave; });
+        await Promise.all(chaves.map(async function (k) {
+            nomes[k] = {};
+            const r = await chamar("GET", REFERENCIAS[k].rota);
+            if (r !== null && r.ok) {
+                (await r.json()).forEach(function (item) { nomes[k][item[k]] = item[REFERENCIAS[k].nome]; });
+            }
+        }));
+
         if (rota !== atual.rota) {
             return;
         }
@@ -274,7 +299,9 @@
 
             atual.colunas.forEach(function (col) {
                 const celula = document.createElement("td");
-                celula.textContent = formatar(r[col[1]]);
+                const valor = r[col[1]];
+                const mapa = nomes[col[1]];
+                celula.textContent = (mapa && mapa[valor] !== undefined) ? mapa[valor] : formatar(valor);
                 linha.appendChild(celula);
             });
 
